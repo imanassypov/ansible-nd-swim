@@ -1,11 +1,11 @@
 [project]
 # TODO: Update these metadata fields with your project information
-name = "iac-ansible-template"
-description = "A comprehensive Ansible project template for infrastructure automation, including best practices, testing, and CI/CD integration."
+name = "ansible-nd-swim"
+description = "Automating Nexus Dashboard Fabric Software Management with Ansible."
 version = "0.1.0"
 requires-python = ">=3.12,<3.14"
 authors = [
-    { name = "Your Name", email = "your.email@example.com" }
+    { name = "YRussell Johnston", email = "rujohns2@cisco.com" }
 ]
 license = { text = "MIT" }
 readme = "README.md"
@@ -72,17 +72,17 @@ monitoring = [
 
 # All optional dependencies combined
 all = [
-# TODO: Update name to mach your project name if you change it above
-    "iac-ansible-template[dev,network,cloud,monitoring]"
+# TODO: Update name to match your project name if you change it above
+    "ansible-nd-swim[dev,network,cloud,monitoring]"
 ]
 
 [project.urls]
 # TODO: Update these URLs with your project's actual links
-Homepage = "https://github.com/yourusername/iac-ansible-template"
-Documentation = "https://github.com/yourusername/iac-ansible-template/blob/main/README.md"
-Repository = "https://github.com/yourusername/iac-ansible-template.git"
-Issues = "https://github.com/yourusername/iac-ansible-template/issues"
-Changelog = "https://github.com/yourusername/iac-ansible-template/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/rjohnston6/ansible-nd-swim"
+Documentation = "https://github.com/rjohnston6/ansible-nd-swim/blob/main/README.md"
+Repository = "https://github.com/rjohnston6/ansible-nd-swim.git"
+Issues = "https://github.com/rjohnston6/ansible-nd-swim/issues"
+Changelog = "https://github.com/rjohnston6/ansible-nd-swim/blob/main/CHANGELOG.md"
 
 # Note: No [build-system] section - this is an Ansible project, not a Python package
 # UV will manage dependencies without trying to build/install the project itself

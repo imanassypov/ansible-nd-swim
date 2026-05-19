@@ -1,4 +1,4 @@
-# Infrastructure as Code: Network Automation
+# Ansible Nexus Dashboard Software Image Management
 
 This project manages [Describe your Infrastructure, e.g., Cisco IOS-XE Core Switches] using Ansible. It follows a modular directory structure and uses `uv` for lightning-fast Python dependency management.
 
@@ -60,7 +60,7 @@ All Ansible commands should be run using `uv run` to ensure they use the isolate
 To run the master playbook against the **Staging** environment:
 
 ```bash
-cd ansible
+cd data
 uv run ansible-playbook -i inventories/staging/hosts.yml site.yml
 ```
 
