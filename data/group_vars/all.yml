@@ -1,0 +1,5 @@
+---
+# Store Variables that effect all hosts here. This is a good place for global defaults, such as:
+# - ansible_user: admin
+# - ansible_become: true
+# - ansible_become_method: sudo

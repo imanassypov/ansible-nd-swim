@@ -1,0 +1,50 @@
+---
+# .ansible-lint
+# Modern configuration using Profiles (min, basic, moderate, safety, shared, production)
+
+# 1. Set the strictness level
+# 'production' is the highest; 'moderate' is a good balance for internal teams.
+profile: basic
+
+# 2. Files and directories to completely ignore
+exclude_paths:
+  - .ansible/
+  - .cache/
+  - .git/
+  - .venv/
+  - .vscode/
+  - .pre-commit/
+  - tests/
+  - scripts/
+  - docs/
+  # If you download collections into data/collections, exclude that too
+  # but keep data/roles if you write your own roles there.
+  - data/collections/
+
+# 3. Rules to skip globally (Hard ignore)
+skip_list:
+  - fqcn[action-core] # Skip if you prefer 'template' over 'ansible.builtin.template'
+  - yaml[line-length] # Often triggered by long Cisco commands/URLs
+  - name[casing] # If you don't want to enforce "Title Case" for every task
+
+# 4. Rules to report as warnings (Soft ignore - won't fail CI)
+warn_list:
+  - experimental # Report but don't fail on experimental rules
+  - name[template] # Warn if task names contain Jinja2 templates
+  - avoid-implicit # Warn about unpredictable implicit behaviors
+
+# 5. Mock modules (Crucial for Cisco/Network automation)
+# Use this if your linting environment (like a CI runner) doesn't have
+# the Cisco collections installed. This prevents "module not found" errors.
+mock_modules:
+  - cisco.ios.ios_config
+  - cisco.ios.ios_command
+  - cisco.nxos.nxos_facts
+
+# 6. Formatting & Standards
+# Enforce that all tasks in roles have a specific prefix for loop variables
+loop_var_prefix: ^(__|{role}_)
+
+# Automatically fix simple issues (like trailing spaces or simple YAML formatting)
+write_list:
+  - all

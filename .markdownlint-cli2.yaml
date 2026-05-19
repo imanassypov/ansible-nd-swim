@@ -1,0 +1,59 @@
+---
+# .markdownlint-cli2.yaml
+# Configuration for markdownlint-cli2
+
+# 1. Files to include (Globs)
+globs:
+  - "**/*.md"
+
+# 2. Files and directories to ignore
+ignores:
+  - .git/
+  - node_modules/
+  - venv/
+  - .venv/
+  - roles/external/ # Ignore roles downloaded from Galaxy
+  - molecule/ # Optional: ignore test-specific docs
+  - "**/LICENSE.md" # Licenses often violate formatting rules
+  - "**/LICENSE"
+
+# 3. Automatically respect your .gitignore file
+gitignore: true
+
+# 4. Rule Configurations
+config:
+  # Default to all rules enabled
+  default: true
+
+  # MD013/line-length: Disable or increase for technical docs with long URLs/commands
+  MD013: false
+
+  # MD033/no-inline-html: Allow inline HTML (useful for Cisco-style tables or formatting)
+  MD033: false
+
+  # MD024/no-duplicate-heading: Only check for duplicates within the same nesting level
+  MD024:
+    siblings_only: true
+
+  # MD029/ol-prefix: Allow ordered lists to stay as "1. 2. 3." (default is "1. 1. 1.")
+  MD029:
+    style: ordered
+
+  # MD041/first-line-heading: Ensure the file starts with an H1 title
+  MD041: true
+
+  # MD044/proper-names: Enforce correct capitalization for technical terms
+  MD044:
+    names:
+      - Ansible
+      # - "ansible-lint"
+      - ansible.*
+      - Cisco
+      - IOS-XE
+      - NX-OS
+      - GitHub
+      - JavaScript
+      - YAML
+      - .yaml
+      - .yml
+    code_blocks: false # Don't check code blocks for proper names

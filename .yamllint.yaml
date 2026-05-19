@@ -1,0 +1,47 @@
+# .yamllint.yaml
+---
+extends: default
+
+rules:
+  # --- Ansible-Lint Mandatory Overrides ---
+
+  # Error: comments.min-spaces-from-content must be 1
+  comments:
+    level: warning
+    require-starting-space: true
+    min-spaces-from-content: 1
+
+  # Error: comments-indentation must be false
+  comments-indentation: false
+
+  # Error: braces.max-spaces-inside must be 1
+  braces:
+    max-spaces-inside: 1
+    level: warning
+
+  # --- General Quality of Life Settings ---
+
+  # Ansible tasks get long; 160 chars is a standard compromise
+  line-length:
+    max: 160
+    level: warning
+    allow-non-breakable-words: true
+
+  # Standard 2-space indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+
+  # Enforce true/false over yes/no
+  truthy:
+    level: warning
+    allowed-values: ["true", "false"]
+  # Prevent permission errors (e.g., 0644 vs "0644")
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+
+ignore: |
+  .venv/
+  .git/
+  docs/

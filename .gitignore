@@ -1,0 +1,28 @@
+# --- Ansible ---
+*.retry
+.ansible/collections/
+.ansible/roles/
+# Ignore local vault password files (if not using a secret manager)
+.vault_pass
+
+# --- Python & uv ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# TODO: If you use local environment variables, ignore them here
+.env
+.env.local
+
+# --- OS & IDE ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# --- Project Specific ---
+# TODO: Add any specific log or output directories here
+/scripts/output/
