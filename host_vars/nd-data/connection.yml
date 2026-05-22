@@ -1,4 +1,4 @@
 ---
-nd_host: <ND_HOST_FQDN_OR_IP_ADDRESS>
-nd_username: <ND_USERNAME>
-nd_api_key: <ND_API_KEY>
+nd_host: "{{ lookup('env', 'ND_HOST') }}"
+nd_username: "{{ lookup('env', 'ND_USERNAME') }}"
+nd_api_key: "{{ lookup('env', 'ND_API_KEY') }}"
