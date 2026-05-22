@@ -1,0 +1,8 @@
+---
+# Example Ansible playbook to upgrade Switches in a Nexus Dashboard managed Fabric
+- name: Upgrade Switches in Nexus Dashboard Fabric
+  hosts: nd-data
+  gather_facts: false
+
+  roles:
+    - role: nd_swim_upgrade

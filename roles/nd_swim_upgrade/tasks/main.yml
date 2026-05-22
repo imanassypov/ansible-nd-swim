@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for nd_swim_upgrade
+
+# Upgrade Workflow:
+
+- name: Configure Remote Storage
+  ansible.builtin.include_tasks:
+    file: 01_configure_remote_storage.yml
+  tags: [remote_storage, setup]
+
+- name: Upload Image to Nexus Dashboard
+  ansible.builtin.include_tasks:
+    file: 02_upload_image.yml
+  tags: [image_upload, setup]
+
+- name: Create Upgrade Group
+  ansible.builtin.include_tasks:
+    file: 03_create_upgrade_group.yml
+  tags: [upgrade_group, setup]
+
+- name: Stage Upgrade and Run Pre-Upgrade Report if Configured
+  ansible.builtin.include_tasks:
+    file: 04_stage_upgrade.yml
+  tags: [stage_upgrade, setup]
+
+- name: Upgrade Switches in Upgrade Group
+  ansible.builtin.include_tasks:
+    file: 05_start_upgrade.yml
+  tags: [start_upgrade]
+
+- name: Perform Post-Upgrade Analysis
+  ansible.builtin.include_tasks:
+    file: 06_post_upgrade_analysis.yml
+  when: nd_swim_upgrade_group_report_selection != "noReport"
+  tags: [post_upgrade_analysis]

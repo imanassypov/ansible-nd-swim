@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 04_stage_upgrade.yml
+
+- name: Check if Upgrade Group is staged and ready for install
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_stage_check
+  failed_when: nd_swim_upgrade_stage_check.status != 200
+  changed_when: false
+
+- name: Set Upgrade Group Staged Fact
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_group_staged: "{{ (nd_swim_upgrade_stage_check.json.softwareUpdateSummary.updatePlanStatus == 'Ready To Install' and nd_swim_upgrade_stage_check.json.updateGroups[0].updateGroupStatus
+      in ['stageSuccess', 'validateSuccess']) | bool }}"
+
+- name: Stage Upgrade for Upgrade Group
+  when: not nd_swim_upgrade_group_staged | bool
+  block:
+    - name: Stage and Validate Upgrade
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/actions/stage"
+        method: POST
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        body_format: json
+        body:
+          updateGroupNames:
+            - "{{ nd_swim_upgrade_group_name }}"
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [202]
+        timeout: 3600
+      register: nd_swim_upgrade_stage_response
+      failed_when: nd_swim_upgrade_stage_response.status != 202
+
+    - name: Poll Staging Progress
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+        method: GET
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [200]
+        timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+      register: nd_swim_upgrade_staging_progress_response
+      until: >
+        nd_swim_upgrade_staging_progress_response.json.softwareUpdateSummary.updatePlanStatus == "Ready To Install" and
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].updateGroupStatus in ["stageSuccess", "stageFailed", "validateSuccess", "validateFailed"] and
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId != "null"
+      retries: 60
+      delay: 60
+      changed_when: false
+
+    - name: Display Staging Progress
+      ansible.builtin.debug:
+        msg: "Staging Progress: {{ nd_swim_upgrade_staging_progress_response.json.softwareUpdateSummary.updatePlanStatus }}, Upgrade Group Status: {{ nd_swim_upgrade_staging_progress_response.json.updateGroups[0].updateGroupStatus
+          }}"
+
+- name: Get Pre-Upgrade Report for Upgrade Group if Configured
+  when: nd_swim_upgrade_group_report_selection != "noReport"
+  block:
+    - name: Poll for Pre-Upgrade Report Generation
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+        method: GET
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [200]
+        timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+      register: nd_swim_upgrade_staging_progress_response
+      until: >
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId != "null"
+      retries: "{{ nd_swim_upgrade_polling_max_attempts }}"
+      delay: "{{ nd_swim_upgrade_polling_delay }}"
+      changed_when: false
+      vars:
+        _: "{{ lookup('template', 'ensure_valid_token.yml') }}"
+
+    - name: Set Update Plan Summary Fact
+      ansible.builtin.set_fact:
+        nd_swim_upgrade_pre_upgrade_report_id: "{{ nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId }}"
+
+    - name: Get Pre-Upgrade Report Details
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateReports/{{ nd_swim_upgrade_pre_upgrade_report_id }}"
+        method: GET
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [200]
+        timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+      register: nd_swim_upgrade_pre_report_response
+      failed_when: false
+
+    - name: Set Pre-Upgrade Report JSON Facts
+      ansible.builtin.set_fact:
+        nd_swim_upgrade_pre_report_json: "{{ nd_swim_upgrade_pre_report_response.json.reportData | from_json }}"
+
+    - name: Calculate Pre-Upgrade Report Totals
+      ansible.builtin.set_fact:
+        nd_swim_upgrade_report_totals:
+          total_tests: "{{ nd_swim_upgrade_pre_report_json | length }}"
+          total_errors: "{{ nd_swim_upgrade_pre_report_json | map(attribute='errors') | map('int') | sum }}"
+          total_warnings: "{{ nd_swim_upgrade_pre_report_json | map(attribute='warnings') | map('int') | sum }}"
+          total_info: "{{ nd_swim_upgrade_pre_report_json | map(attribute='info') | map('int') | sum }}"
+          total_success: "{{ nd_swim_upgrade_pre_report_json | map(attribute='success') | map('int') | sum }}"
+          passed_tests: "{{ nd_swim_upgrade_pre_report_json | selectattr('Final Check Data', 'defined') | map(attribute='Final Check Data') | flatten | selectattr('Status.props.value',
+            'equalto', 'Passed') | list | length }}"
+
+    - name: Display Pre-Upgrade Report Summary
+      ansible.builtin.debug:
+        msg:
+          - ==========================================
+          - Pre-Upgrade Report Summary
+          - ==========================================
+          - "Total Tests: {{ nd_swim_upgrade_report_totals.total_tests }}"
+          - "Tests Passed: {{ nd_swim_upgrade_report_totals.passed_tests }}"
+          - ""
+          - "Overall Totals:"
+          - "  Success: {{ nd_swim_upgrade_report_totals.total_success }}"
+          - "  Errors: {{ nd_swim_upgrade_report_totals.total_errors }}"
+          - "  Warnings: {{ nd_swim_upgrade_report_totals.total_warnings }}"
+          - "  Info: {{ nd_swim_upgrade_report_totals.total_info }}"
+          - ==========================================
+
+    - name: Display Individual Test Results
+      ansible.builtin.debug:
+        msg:
+          - "Test: {{ item.title }}"
+          - "  Description: {{ item.Description }}"
+          - "  Status: {{ item['Final Check Data'][0].Status.props.value }}"
+          - "  Success: {{ item.success }} | Errors: {{ item.errors }} | Warnings: {{ item.warnings }} | Info: {{ item.info }}"
+          - "---"
+      loop: "{{ nd_swim_upgrade_pre_report_json }}"
+      loop_control:
+        label: "{{ item.title }}"
+      when: nd_swim_upgrade_debug | bool

@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 05_start_upgrade.yml
+
+- name: Start Upgrade for Upgrade Group
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/actions/updateSoftware"
+    method: POST
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    body_format: json
+    body:
+      updateGroupNames:
+        - "{{ nd_swim_upgrade_group_name }}"
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [202]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_start_response
+  failed_when: nd_swim_upgrade_start_response.status != 202
+  tags: [start_upgrade]
+
+- name: Display Upgrade Start Confirmation
+  ansible.builtin.debug:
+    msg:
+      - =======================================================
+      - Upgrade Process Started Successfully
+      - "Upgrade Group: {{ nd_swim_upgrade_group_name }}"
+      - "Fabric: {{ nd_fabric_name }}"
+      - "Maintenance Mode: {{ 'Enabled' if nd_swim_upgrade_group_maintenance | bool else 'Disabled' }}"
+      - "Disruptive Upgrade: {{ 'Yes' if nd_swim_upgrade_group_disruptive | bool else 'No' }}"
+      - =======================================================
+
+- name: Poll Upgrade Progress
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_progress_response
+  until: nd_swim_upgrade_progress_response.json.updateGroups[0].installStatus in ['success', 'failed']
+  retries: "{{ nd_swim_upgrade_polling_max_attempts }}"
+  delay: "{{ nd_swim_upgrade_polling_delay }}"
+  changed_when: false
+
+- name: Display Upgrade Completion Status
+  ansible.builtin.debug:
+    msg:
+      - =======================================================
+      - Upgrade Completed
+      - "Upgrade Group: {{ nd_swim_upgrade_group_name }}"
+      - "Fabric: {{ nd_fabric_name }}"
+      - "Upgrade Plan Status: {{ nd_swim_upgrade_progress_response.json.softwareUpdateSummary.updatePlanStatus }}"
+      - "Upgrade Group Install Status: {{ nd_swim_upgrade_progress_response.json.updateGroups[0].installStatus }}"
+      - "Upgrade Start Time: {{ nd_swim_upgrade_progress_response.json.updateGroups[0].installStartTime }}"
+      - "Upgrade End Time: {{ nd_swim_upgrade_progress_response.json.updateGroups[0].installEndTime }}"
+      - "Upgrade Duration: {{ (nd_swim_upgrade_progress_response.json.updateGroups[0].installEndTime | to_datetime('%Y-%m-%dT%H:%M:%S.%fZ') - nd_swim_upgrade_progress_response.json.updateGroups[0].installStartTime
+        | to_datetime('%Y-%m-%dT%H:%M:%S.%fZ')).total_seconds() | int }} seconds"
+      - =======================================================

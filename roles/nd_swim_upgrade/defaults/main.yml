@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# defaults file for nd_swim_upgrade
+
+nd_swim_upgrade_nd_validate_certs: "{{ nd_validate_certs | default(false) }}"
+
+# Debugging
+nd_swim_upgrade_debug: false
+
+# API Retry Configuration
+nd_swim_upgrade_nd_api_timeout: "{{ nd_api_timeout | default(60) }}"
+nd_swim_upgrade_api_retry_count: "{{ api_retry_count | default(3) }}"
+nd_swim_upgrade_api_retry_delay: "{{ api_retry_delay | default(5) }}"
+
+# Upgrade Group Defaults
+nd_swim_upgrade_group_analysis: noAnalysis # snapshot, noAnalysis, fullAnalysis, usePreExistingAnalysis
+nd_swim_upgrade_group_contingency: pause # continue, pause
+nd_swim_upgrade_group_execution: parallel # parallel, sequential
+nd_swim_upgrade_group_uninstall_package: true
+nd_swim_upgrade_group_disruptive: true
+nd_swim_upgrade_group_maintenance: false
+nd_swim_upgrade_group_report_selection: noReport # noReport, basic, advanced

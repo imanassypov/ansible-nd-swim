@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 06_post_upgrade_analysis.yml
+
+- name: Generate Post Upgrade Report
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateReportActions/startPostReport"
+    method: POST
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    body_format: json
+    body:
+      preReportInstanceId: "{{ nd_swim_upgrade_pre_upgrade_report_id }}"
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_post_report_create_response
+  failed_when: nd_swim_upgrade_post_report_create_response.status != 200
+  changed_when: false
+
+- name: Set Post Analysis Report Available Fact
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_post_analysis_available: "{{ nd_swim_upgrade_post_report_create_response.json.postReportInstanceId }}"
+
+- name: Get Post-Upgrade Report Details
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateReports/{{ nd_swim_upgrade_post_analysis_available }}"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_post_report_response
+  failed_when: false
+
+- name: Set Post-Upgrade Report JSON Facts
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_post_report_json: "{{ nd_swim_upgrade_post_report_response.json.reportData | from_json }}"
+
+- name: Calculate Post-Upgrade Report Totals
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_post_report_totals:
+      total_tests: "{{ nd_swim_upgrade_post_report_json | length }}"
+      total_errors: "{{ nd_swim_upgrade_post_report_json | map(attribute='errors') | map('int') | sum }}"
+      total_warnings: "{{ nd_swim_upgrade_post_report_json | map(attribute='warnings') | map('int') | sum }}"
+      total_info: "{{ nd_swim_upgrade_post_report_json | map(attribute='info') | map('int') | sum }}"
+      total_success: "{{ nd_swim_upgrade_post_report_json | map(attribute='success') | map('int') | sum }}"
+      passed_tests: "{{ nd_swim_upgrade_post_report_json | selectattr('Final Check Data', 'defined') | map(attribute='Final Check Data') | flatten | selectattr('Status.props.value',
+        'equalto', 'Passed') | list | length }}"
+
+- name: Display Post-Upgrade Report Summary
+  ansible.builtin.debug:
+    msg:
+      - ==========================================
+      - Post-Upgrade Report Summary
+      - ==========================================
+      - "Total Tests: {{ nd_swim_upgrade_post_report_totals.total_tests }}"
+      - "Tests Passed: {{ nd_swim_upgrade_post_report_totals.passed_tests }}"
+      - ""
+      - "Overall Totals:"
+      - "  Success: {{ nd_swim_upgrade_post_report_totals.total_success }}"
+      - "  Errors: {{ nd_swim_upgrade_post_report_totals.total_errors }}"
+      - "  Warnings: {{ nd_swim_upgrade_post_report_totals.total_warnings }}"
+      - "  Info: {{ nd_swim_upgrade_post_report_totals.total_info }}"
+      - ==========================================
+
+- name: Display Individual Test Results
+  ansible.builtin.debug:
+    msg:
+      - "Test: {{ item.title }}"
+      - "  Description: {{ item.Description }}"
+      - "  Status: {{ item['Final Check Data'][0].Status.props.value }}"
+      - "  Success: {{ item.success }} | Errors: {{ item.errors }} | Warnings: {{ item.warnings }} | Info: {{ item.info }}"
+      - "---"
+  loop: "{{ nd_swim_upgrade_post_report_json }}"
+  loop_control:
+    label: "{{ item.title }}"
+  when: nd_swim_upgrade_debug | bool
+
+- name: Compare Pre and Post Upgrade Reports
+  ansible.builtin.debug:
+    msg:
+      - =======================================================
+      - Pre vs Post Upgrade Report Comparison
+      - ======================================================
+      - "Total Tests: {{ nd_swim_upgrade_report_totals.total_tests }} | {{ nd_swim_upgrade_post_report_totals.total_tests }}"
+      - "Tests Passed: {{ nd_swim_upgrade_report_totals.passed_tests }} | {{ nd_swim_upgrade_post_report_totals.passed_tests }}"
+      - ""
+      - "Overall Totals:"
+      - "  Success: {{ nd_swim_upgrade_report_totals.total_success }} | {{ nd_swim_upgrade_post_report_totals.total_success }}"
+      - "  Errors: {{ nd_swim_upgrade_report_totals.total_errors }} | {{ nd_swim_upgrade_post_report_totals.total_errors }}"
+      - "  Warnings: {{ nd_swim_upgrade_report_totals.total_warnings }} | {{ nd_swim_upgrade_post_report_totals.total_warnings }}"
+      - "  Info: {{ nd_swim_upgrade_report_totals.total_info }} | {{ nd_swim_upgrade_post_report_totals.total_info }}"
+      - =======================================================

@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 01_configure_remote_storage
+
+- name: Check if Remote Storage is present
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_infra_base_url }}/remoteStorage/{{ nd_remote_storage_name }}"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_remote_storage_check
+  failed_when: false
+  changed_when: false
+
+- name: Set Remote Storage Exists Fact
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_remote_storage_exists: "{{ nd_swim_upgrade_remote_storage_check.status == 200 }}"
+
+- name: Display Remote Storage Status
+  ansible.builtin.debug:
+    msg: Remote storage '{{ nd_remote_storage_name }}' {{ 'already exists' if nd_swim_upgrade_remote_storage_exists else 'will be created' }}
+
+- name: Configure Remote Storage if not present
+  when: not nd_swim_upgrade_remote_storage_exists | bool
+  block:
+    - name: Create Remote Storage if not present
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_infra_base_url }}/remoteStorage"
+        method: POST
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        body_format: json
+        body:
+          authentication:
+            username: "{{ nd_remote_storage_username }}"
+            password: "{{ nd_remote_storage_password }}"
+            type: password
+            ignoreHostKeyValidation: "{{ nd_remote_storage_ignore_host_key_validation | default(false) }}"
+          port: 22
+          description: "{{ nd_remote_storage_description | default('Ansible Configured Remote Storage') }}"
+          hostname: "{{ nd_remote_storage_hostname }}"
+          name: "{{ nd_remote_storage_name }}"
+          path: "{{ nd_remote_storage_path }}"
+          type: "{{ nd_remote_storage_type }}"
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [200]
+        timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+
+    - name: Confirm Remote Storage Creation
+      ansible.builtin.debug:
+        msg: Remote Storage '{{ nd_remote_storage_name }}' created successfully

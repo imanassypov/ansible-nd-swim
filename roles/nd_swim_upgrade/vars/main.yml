@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# vars file for nd_swim_upgrade
+# Base URLs for Nexus Dashboard API endpoints
+nd_swim_upgrade_infra_base_url: https://{{ nd_host }}/api/v1/infra
+nd_swim_upgrade_manage_base_url: https://{{ nd_host }}/api/v1/manage
+
+# API Polling Constants
+nd_swim_upgrade_polling_max_attempts: 60
+nd_swim_upgrade_nd_polling_timeout: 3600
+nd_swim_upgrade_polling_delay: 60

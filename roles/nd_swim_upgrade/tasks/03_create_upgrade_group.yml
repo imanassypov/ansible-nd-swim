@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 03_create_upgrade_group.yml
+
+- name: Check if Upgrade Group is already present
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabricSoftware/updateGroups"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_group_check
+  failed_when: false
+  changed_when: false
+
+- name: Set Upgrade Group Exists Fact
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_group_exists: "{{ (nd_swim_upgrade_group_name in nd_swim_upgrade_group_check.json.updateGroupNames | default([])) | bool }}"
+
+- name: Display Upgrade Group Status
+  ansible.builtin.debug:
+    msg: Upgrade Group '{{ nd_swim_upgrade_group_name }}' {{ 'already exists' if nd_swim_upgrade_group_exists else 'will be created' }}
+
+- name: Create Upgrade Group if not present
+  when: not nd_swim_upgrade_group_exists | bool
+  block:
+    - name: Create Upgrade Group and attach Switches
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateGroups"
+        method: POST
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        body_format: json
+        body:
+          updateGroups:
+            - analysis: "{{ nd_swim_upgrade_group_analysis }}"
+              contingency: "{{ nd_swim_upgrade_group_contingency }}"
+              execution: "{{ nd_swim_upgrade_group_execution }}"
+              installImageData:
+                epldImageName: "{{ nd_swim_upgrade_group_epld_image_name | default('') }}"
+                installPackageNames: "{{ nd_swim_upgrade_group_install_package_names | default([]) }}"
+                nosImageName: "{{ nd_swim_upgrade_group_nos_image_name | default(nd_swim_image_name) }}"
+                uninstallPackage: "{{ nd_swim_upgrade_group_uninstall_package }}"
+              installationOrderDevices: "{{ nd_swim_upgrade_group_installation_order_devices | default([]) }}"
+              isDisruptiveUpdate: "{{ nd_swim_upgrade_group_disruptive }}"
+              isMaintenance: "{{ nd_swim_upgrade_group_maintenance }}"
+              reportSelection: "{{ nd_swim_upgrade_group_report_selection }}"
+              reports: "{{ nd_swim_upgrade_group_reports | default('noReport') }}"
+              updateGroupName: "{{ nd_swim_upgrade_group_name }}"
+              updateGroupSwitches: "{{ nd_swim_upgrade_group_switches | list }}"
+              updateReportChecks: "{{ nd_swim_upgrade_group_report_checks | default([]) }}"
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [207]
+        timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+      register: nd_swim_upgrade_group_creation_response
+      failed_when: nd_swim_upgrade_group_creation_response.status != 207
+
+    - name: Set Upgrade Group Creation Fact
+      ansible.builtin.set_fact:
+        nd_swim_upgrade_group_created_name: "{{ nd_swim_upgrade_group_creation_response.json.updateGroups[0].updateGroupName }}"
+        nd_swim_upgrade_group_created_status: "{{ nd_swim_upgrade_group_creation_response.json.updateGroups[0].status }}"
+        nd_swim_upgrade_group_created_message: "{{ nd_swim_upgrade_group_creation_response.json.updateGroups[0].message }}"
+
+    - name: Confirm Upgrade Group Creation
+      ansible.builtin.debug:
+        msg: "{{ nd_swim_upgrade_group_created_name }} : {{ nd_swim_upgrade_group_created_message }}"
+
+- name: Update Upgrade Group if already present
+  when: nd_swim_upgrade_group_exists | bool
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateGroups/{{ nd_swim_upgrade_group_name }}"
+    method: PUT
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    body_format: json
+    body:
+      analysis: "{{ nd_swim_upgrade_group_analysis }}"
+      contingency: "{{ nd_swim_upgrade_group_contingency }}"
+      execution: "{{ nd_swim_upgrade_group_execution }}"
+      installImageData:
+        epldImageName: "{{ nd_swim_upgrade_group_epld_image_name | default('') }}"
+        installPackageNames: "{{ nd_swim_upgrade_group_install_package_names | default([]) }}"
+        nosImageName: "{{ nd_swim_upgrade_group_nos_image_name | default(nd_swim_image_name) }}"
+        uninstallPackage: "{{ nd_swim_upgrade_group_uninstall_package }}"
+      installationOrderDevices: "{{ nd_swim_upgrade_group_installation_order_devices | default([]) }}"
+      isDisruptiveUpdate: "{{ nd_swim_upgrade_group_disruptive }}"
+      isMaintenance: "{{ nd_swim_upgrade_group_maintenance }}"
+      reportSelection: "{{ nd_swim_upgrade_group_report_selection }}"
+      reports: "{{ nd_swim_upgrade_group_reports | default('noReport') }}"
+      updateGroupName: "{{ nd_swim_upgrade_group_name }}"
+      updateGroupSwitches: "{{ nd_swim_upgrade_group_switches | list }}"
+      updateReportChecks: "{{ nd_swim_upgrade_group_report_checks | default([]) }}"
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [204]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_group_update_response
+  failed_when: nd_swim_upgrade_group_update_response.status != 204

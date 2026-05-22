@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
+---
+# tasks file for 02_upload_image
+
+- name: Check if Image is already present
+  ansible.builtin.uri:
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabricSoftware/imageSummary"
+    method: GET
+    headers:
+      X-Nd-Username: "{{ nd_username }}"
+      X-Nd-Apikey: "{{ nd_api_key }}"
+      accept: application/json
+    validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+    status_code: [200]
+    timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
+  register: nd_swim_upgrade_images
+  failed_when: false
+  changed_when: false
+
+- name: Set Image Exists Fact
+  ansible.builtin.set_fact:
+    nd_swim_upgrade_image_exists: "{{ (nd_swim_image_name in nd_swim_upgrade_images.json.nosImages | default([])) | bool }}"
+
+- name: Display Image Status
+  ansible.builtin.debug:
+    msg: Image '{{ nd_swim_image_name }}' {{ 'already exists' if nd_swim_upgrade_image_exists else 'will be created' }}
+
+- name: Upload Image if not present
+  when: not nd_swim_upgrade_image_exists | bool
+  block:
+    - name: Uploading Image to Nexus Dashboard - Please be patient, this may take several minutes...
+      ansible.builtin.uri:
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabricSoftware/images"
+        method: POST
+        headers:
+          X-Nd-Username: "{{ nd_username }}"
+          X-Nd-Apikey: "{{ nd_api_key }}"
+          accept: application/json
+        body_format: json
+        body:
+          filePath: "{{ nd_swim_image_path }}"
+          remoteServerName: "{{ nd_remote_storage_name }}"
+        validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
+        status_code: [200]
+        timeout: 300
+
+    - name: Confirm Image Upload
+      ansible.builtin.debug:
+        msg: Image '{{ nd_swim_image_name }}' uploaded successfully
