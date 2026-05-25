@@ -1,7 +1,31 @@
 # SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
 ---
 # tasks file for 03_create_upgrade_group.yml
+#
+# This task file manages the lifecycle of an ND SWIM upgrade group in the target fabric.
+# An upgrade group is a named container that associates one or more switches with a
+# specific NX-OS image and a set of upgrade parameters (analysis mode, execution order,
+# contingency policy, report selection, etc.).
+#
+# Logic:
+#   1. Query the fabric-scoped upgrade group list.
+#   2. If the group is absent  → POST to create it.
+#   3. If the group is present → PUT to reconcile its configuration.
+#
+# IMPORTANT: ND enforces globally unique upgrade group names across ALL fabrics.
+# Always use a name that includes the fabric identifier (e.g. ansible_upgrade_group_swim)
+# to avoid silent collisions with groups belonging to other fabrics.
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 1: Check whether the upgrade group already exists in this fabric
+# ──────────────────────────────────────────────────────────────────────────────
+# Endpoint: GET /api/v1/manage/fabrics/{fabric}/updateGroups
+# Returns a list of all upgrade groups scoped to the specified fabric only.
+#
+# IMPORTANT: Do NOT use the global /fabricSoftware/updateGroups endpoint here.
+# That endpoint aggregates group names from every fabric on the Nexus Dashboard,
+# which causes false-positive matches when the same group name exists in another
+# fabric — leading to a skipped creation and a failed PUT (404) against this fabric.
 - name: Check if Upgrade Group is already present in fabric '{{ nd_fabric_name }}'
   ansible.builtin.uri:
     url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateGroups"
@@ -14,9 +38,12 @@
     status_code: [200]
     timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
   register: nd_swim_upgrade_group_check
-  failed_when: false
-  changed_when: false
+  failed_when: false # Never fail here — absence of the group is a valid, expected state
+  changed_when: false # Read-only check; does not modify ND state
 
+# Walk the returned updateGroups array, pluck the updateGroupName attribute from each
+# element, and test whether our target group name is in that list.
+# The | default([]) guard prevents a crash if the fabric has no groups yet.
 - name: Set Upgrade Group Exists Fact
   ansible.builtin.set_fact:
     nd_swim_upgrade_group_exists: >-
@@ -27,6 +54,17 @@
   ansible.builtin.debug:
     msg: Upgrade Group '{{ nd_swim_upgrade_group_name }}' {{ 'already exists' if nd_swim_upgrade_group_exists else 'will be created' }}
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 2a: Create the upgrade group (idempotent — only when absent)
+# ──────────────────────────────────────────────────────────────────────────────
+# Endpoint: POST /api/v1/manage/fabrics/{fabric}/updateGroups
+# The body wraps one or more group definitions inside an updateGroups array.
+#
+# ND API quirk: this endpoint always returns HTTP 207 Multi-Status, even when the
+# operation fails (e.g. name collision, invalid switch serial). The actual outcome
+# is embedded in the response body at .updateGroups[0].status ("created" vs "failed").
+# The failed_when expression therefore checks BOTH the HTTP status AND the body-level
+# status to surface real errors rather than masking them behind a 207.
 - name: Create Upgrade Group if not present
   when: not nd_swim_upgrade_group_exists | bool
   block:
@@ -41,26 +79,30 @@
         body_format: json
         body:
           updateGroups:
-            - analysis: "{{ nd_swim_upgrade_group_analysis }}"
-              contingency: "{{ nd_swim_upgrade_group_contingency }}"
-              execution: "{{ nd_swim_upgrade_group_execution }}"
+            - analysis: "{{ nd_swim_upgrade_group_analysis }}" # noAnalysis | preOnly | preAndPost
+              contingency: "{{ nd_swim_upgrade_group_contingency }}" # continue | abort — what to do if a switch fails
+              execution: "{{ nd_swim_upgrade_group_execution }}" # parallel | sequential
               installImageData:
-                epldImageName: "{{ nd_swim_upgrade_group_epld_image_name | default('') }}"
-                installPackageNames: "{{ nd_swim_upgrade_group_install_package_names | default([]) }}"
-                nosImageName: "{{ nd_swim_upgrade_group_nos_image_name | default(nd_swim_image_name) }}"
-                uninstallPackage: "{{ nd_swim_upgrade_group_uninstall_package }}"
-              installationOrderDevices: "{{ nd_swim_upgrade_group_installation_order_devices | default([]) }}"
-              isDisruptiveUpdate: "{{ nd_swim_upgrade_group_disruptive }}"
-              isMaintenance: "{{ nd_swim_upgrade_group_maintenance }}"
-              reportSelection: "{{ nd_swim_upgrade_group_report_selection }}"
+                epldImageName: "{{ nd_swim_upgrade_group_epld_image_name | default('') }}" # EPLD image; empty string = none
+                installPackageNames: "{{ nd_swim_upgrade_group_install_package_names | default([]) }}" # SMU packages to install
+                nosImageName: "{{ nd_swim_upgrade_group_nos_image_name | default(nd_swim_image_name) }}" # NX-OS target image
+                uninstallPackage: "{{ nd_swim_upgrade_group_uninstall_package }}" # whether to uninstall before install
+              installationOrderDevices: "{{ nd_swim_upgrade_group_installation_order_devices | default([]) }}" # ordered list for sequential upgrades
+              isDisruptiveUpdate: "{{ nd_swim_upgrade_group_disruptive }}" # true = reload required
+              isMaintenance: "{{ nd_swim_upgrade_group_maintenance }}" # true = put switches in maintenance mode first
+              reportSelection: "{{ nd_swim_upgrade_group_report_selection }}" # noReport | basic | detailed
               reports: "{{ nd_swim_upgrade_group_reports | default('noReport') }}"
               updateGroupName: "{{ nd_swim_upgrade_group_name }}"
-              updateGroupSwitches: "{{ nd_swim_upgrade_group_switches | list }}"
-              updateReportChecks: "{{ nd_swim_upgrade_group_report_checks | default([]) }}"
+              updateGroupSwitches: "{{ nd_swim_upgrade_group_switches | list }}" # list of switch serial numbers
+              updateReportChecks: "{{ nd_swim_upgrade_group_report_checks | default([]) }}" # custom pre/post checks
         validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
-        status_code: [207]
+        status_code: [207] # ND always returns 207 for this endpoint — check body for real status
         timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
       register: nd_swim_upgrade_group_creation_response
+      # Dual-condition failure check:
+      #   • HTTP status != 207 catches network-level errors
+      #   • body status == 'failed' catches ND application-level errors (e.g. name collision,
+      #     invalid serial number) that ND reports inside the 207 body instead of as 4xx/5xx
       failed_when: >
         nd_swim_upgrade_group_creation_response.status != 207 or
         nd_swim_upgrade_group_creation_response.json.updateGroups[0].status == 'failed'
@@ -75,6 +117,14 @@
       ansible.builtin.debug:
         msg: "{{ nd_swim_upgrade_group_created_name }} : {{ nd_swim_upgrade_group_created_message }}"
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 2b: Update the upgrade group (idempotent — only when already present)
+# ──────────────────────────────────────────────────────────────────────────────
+# Endpoint: PUT /api/v1/manage/fabrics/{fabric}/updateGroups/{groupName}
+# Reconciles the group definition to match the current var file state.
+# This allows re-running the playbook safely after changing image names,
+# switch lists, or execution parameters without needing to delete the group first.
+# Returns HTTP 204 No Content on success.
 - name: Update Upgrade Group if already present
   when: nd_swim_upgrade_group_exists | bool
   ansible.builtin.uri:
@@ -103,7 +153,7 @@
       updateGroupSwitches: "{{ nd_swim_upgrade_group_switches | list }}"
       updateReportChecks: "{{ nd_swim_upgrade_group_report_checks | default([]) }}"
     validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
-    status_code: [204]
+    status_code: [204] # 204 No Content = update accepted; no body returned
     timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
   register: nd_swim_upgrade_group_update_response
   failed_when: nd_swim_upgrade_group_update_response.status != 204

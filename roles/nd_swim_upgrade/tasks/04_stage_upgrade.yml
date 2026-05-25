@@ -1,7 +1,29 @@
 # SPDX-License-Identifier: Cisco Sample Code License, Version 1.1
 ---
 # tasks file for 04_stage_upgrade.yml
+#
+# This task file handles image staging and pre-upgrade validation for the target
+# upgrade group. Staging downloads the target NX-OS image to the switch bootflash,
+# verifies its integrity, and (depending on nd_swim_upgrade_group_analysis) runs
+# a pre-upgrade compatibility report against each switch.
+#
+# Logic:
+#   1. Query the upgrade plan summary to check whether staging is already complete.
+#   2. If not staged → POST to trigger stage+validate, then poll until done.
+#   3. If nd_swim_upgrade_group_report_selection != noReport → wait for and display
+#      the pre-upgrade report (compatibility checks, error/warning counts, etc.).
+#
+# IMPORTANT: When analysis == noAnalysis, ND does not generate a pre-upgrade report.
+# preReportInstanceId will be null in the API response. All tasks that consume the
+# report ID are guarded with an explicit null/empty check so they are safely skipped.
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Step 1: Check whether staging is already complete (idempotency guard)
+# ──────────────────────────────────────────────────────────────────────────────
+# Endpoint: GET /api/v1/manage/fabrics/{fabric}/softwareUpdatePlan/summary?upgradeGroupName=...
+# Returns the overall plan status and per-group status for the specified group.
+# If the plan is already "Ready To Install" and the group reached stageSuccess or
+# validateSuccess, staging is skipped so the playbook is safe to re-run.
 - name: Check if Upgrade Group is staged and ready for install
   ansible.builtin.uri:
     url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
@@ -17,6 +39,8 @@
   failed_when: nd_swim_upgrade_stage_check.status != 200
   changed_when: false
 
+# Composite condition: plan-level status AND group-level status must both indicate
+# success before we consider staging complete and skip the Stage block below.
 - name: Set Upgrade Group Staged Fact
   ansible.builtin.set_fact:
     nd_swim_upgrade_group_staged: "{{ (nd_swim_upgrade_stage_check.json.softwareUpdateSummary.updatePlanStatus == 'Ready To Install' and nd_swim_upgrade_stage_check.json.updateGroups[0].updateGroupStatus
@@ -25,6 +49,13 @@
 - name: Stage Upgrade for Upgrade Group
   when: not nd_swim_upgrade_group_staged | bool
   block:
+    # ──────────────────────────────────────────────────────────────────────────
+    # Step 2: Trigger staging (only when not already staged)
+    # ──────────────────────────────────────────────────────────────────────────
+    # Endpoint: POST /api/v1/manage/fabrics/{fabric}/softwareUpdatePlan/actions/stage
+    # Initiates image download to bootflash + integrity check on every switch in
+    # the group. The operation is asynchronous — ND returns 202 Accepted immediately
+    # and the actual work proceeds in the background. Poll in the next task.
     - name: Stage and Validate Upgrade
       ansible.builtin.uri:
         url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/actions/stage"
@@ -43,6 +74,16 @@
       register: nd_swim_upgrade_stage_response
       failed_when: nd_swim_upgrade_stage_response.status != 202
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # Step 3: Poll until staging completes
+    # ──────────────────────────────────────────────────────────────────────────
+    # Re-queries the plan summary every 60 s for up to 60 retries (60 min total).
+    # The until condition requires ALL of the following to be true before exiting:
+    #   • updatePlanStatus == "Ready To Install" (plan accepted the staged image)
+    #   • updateGroupStatus is one of the four terminal states (success or failed)
+    #   • preReportInstanceId != "null" (report ID field has resolved, even if null
+    #     value, indicating ND has finished updating the record)
+    # Fails immediately if a terminal "failed" state is observed.
     - name: Poll Staging Progress
       ansible.builtin.uri:
         url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
@@ -69,8 +110,17 @@
           }}"
 
 - name: Get Pre-Upgrade Report for Upgrade Group if Configured
+  # Skip the entire block when reportSelection is noReport — ND will not generate a
+  # pre-upgrade report in that case, so polling for one would loop until timeout.
   when: nd_swim_upgrade_group_report_selection != "noReport"
   block:
+    # ──────────────────────────────────────────────────────────────────────────
+    # Step 4: Wait for the pre-upgrade report ID to be populated
+    # ──────────────────────────────────────────────────────────────────────────
+    # After staging completes, ND asynchronously generates the pre-upgrade
+    # compatibility report. The preReportInstanceId field in the plan summary
+    # starts as the string "null" and is replaced with a UUID once the report
+    # is ready. Poll until the field contains a real value.
     - name: Poll for Pre-Upgrade Report Generation
       ansible.builtin.uri:
         url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
@@ -92,9 +142,20 @@
         _: "{{ lookup('template', 'ensure_valid_token.yml') }}"
 
     - name: Set Update Plan Summary Fact
+      # Capture the report ID for use in subsequent tasks.
+      # When analysis == noAnalysis this will be Python None (Jinja null → None),
+      # which is safe to test with `is not none` in the when conditions below.
       ansible.builtin.set_fact:
         nd_swim_upgrade_pre_upgrade_report_id: "{{ nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId }}"
 
+    # ──────────────────────────────────────────────────────────────────────────
+    # Steps 5-8: Fetch and display the pre-upgrade report
+    # ──────────────────────────────────────────────────────────────────────────
+    # All four tasks are guarded by the same null/empty check on the report ID.
+    # When analysis == noAnalysis, preReportInstanceId is null and these tasks are
+    # skipped cleanly. Without this guard, the URI module would build the URL as
+    # ".../updateReports/" (empty ID), receive a 404 with no JSON body, and then
+    # crash on the set_fact that tries to access .json.reportData.
     - name: Get Pre-Upgrade Report Details
       when: nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0
       ansible.builtin.uri:
