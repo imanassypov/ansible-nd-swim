@@ -2,9 +2,9 @@
 ---
 # tasks file for 03_create_upgrade_group.yml
 
-- name: Check if Upgrade Group is already present
+- name: Check if Upgrade Group is already present in fabric '{{ nd_fabric_name }}'
   ansible.builtin.uri:
-    url: "{{ nd_swim_upgrade_manage_base_url }}/fabricSoftware/updateGroups"
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateGroups"
     method: GET
     headers:
       X-Nd-Username: "{{ nd_username }}"
@@ -19,7 +19,9 @@
 
 - name: Set Upgrade Group Exists Fact
   ansible.builtin.set_fact:
-    nd_swim_upgrade_group_exists: "{{ (nd_swim_upgrade_group_name in nd_swim_upgrade_group_check.json.updateGroupNames | default([])) | bool }}"
+    nd_swim_upgrade_group_exists: >-
+      {{ (nd_swim_upgrade_group_name in
+      (nd_swim_upgrade_group_check.json.updateGroups | default([]) | map(attribute='updateGroupName') | list)) | bool }}
 
 - name: Display Upgrade Group Status
   ansible.builtin.debug:
@@ -59,7 +61,9 @@
         status_code: [207]
         timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
       register: nd_swim_upgrade_group_creation_response
-      failed_when: nd_swim_upgrade_group_creation_response.status != 207
+      failed_when: >
+        nd_swim_upgrade_group_creation_response.status != 207 or
+        nd_swim_upgrade_group_creation_response.json.updateGroups[0].status == 'failed'
 
     - name: Set Upgrade Group Creation Fact
       ansible.builtin.set_fact:
