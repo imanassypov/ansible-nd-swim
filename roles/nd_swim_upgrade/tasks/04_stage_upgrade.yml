@@ -96,6 +96,7 @@
         nd_swim_upgrade_pre_upgrade_report_id: "{{ nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId }}"
 
     - name: Get Pre-Upgrade Report Details
+      when: nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0
       ansible.builtin.uri:
         url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/updateReports/{{ nd_swim_upgrade_pre_upgrade_report_id }}"
         method: GET
@@ -110,10 +111,12 @@
       failed_when: false
 
     - name: Set Pre-Upgrade Report JSON Facts
+      when: nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0
       ansible.builtin.set_fact:
         nd_swim_upgrade_pre_report_json: "{{ nd_swim_upgrade_pre_report_response.json.reportData | from_json }}"
 
     - name: Calculate Pre-Upgrade Report Totals
+      when: nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0
       ansible.builtin.set_fact:
         nd_swim_upgrade_report_totals:
           total_tests: "{{ nd_swim_upgrade_pre_report_json | length }}"
@@ -125,6 +128,7 @@
             'equalto', 'Passed') | list | length }}"
 
     - name: Display Pre-Upgrade Report Summary
+      when: nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0
       ansible.builtin.debug:
         msg:
           - ==========================================
@@ -151,4 +155,4 @@
       loop: "{{ nd_swim_upgrade_pre_report_json }}"
       loop_control:
         label: "{{ item.title }}"
-      when: nd_swim_upgrade_debug | bool
+      when: nd_swim_upgrade_debug | bool and nd_swim_upgrade_pre_upgrade_report_id is not none and nd_swim_upgrade_pre_upgrade_report_id | string | length > 0

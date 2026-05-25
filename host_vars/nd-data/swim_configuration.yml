@@ -1,11 +1,11 @@
 ---
-nd_fabric_name: <TARGET_FABRIC_NAME>
+nd_fabric_name: swim
 
 nd_remote_storage_name: ansible-scp
-nd_remote_storage_hostname: <REMOTE_STORAGE_FQDN_OR_IP_ADDRESS>
-nd_remote_storage_path: <BASE_PATH_ON_REMOTE_STORAGE>
+nd_remote_storage_hostname: devops-svr1.corp.pseudoco.com
+nd_remote_storage_path: /home/sftpuser/nos_images/
 nd_remote_storage_username: sftpuser
-nd_remote_storage_password: <SUPER_SECRET_SCP_SFTP_PASSWORD>
+nd_remote_storage_password: "" # Not required — ansible-scp already exists on ND, creation will be skipped
 nd_remote_storage_ignore_host_key_validation: true
 nd_remote_storage_description: Remote Storage configured by Ansible for SWIM Upgrade Testing
 nd_remote_storage_type: scp
@@ -13,8 +13,9 @@ nd_remote_storage_type: scp
 nd_swim_image_name: nxos64-cs.10.6.3.F.bin
 nd_swim_image_path: nxos64-cs.10.6.3.F.bin
 
-nd_swim_upgrade_group_name: ansible_upgrade_group
+nd_swim_upgrade_group_name: ansible_upgrade_group_swim
 nd_swim_upgrade_group_contingency: continue
 nd_swim_upgrade_group_execution: parallel
 nd_swim_upgrade_group_report_selection: basic
-nd_swim_upgrade_group_switches: [<TARGET_SWITCH_ID's>] # List of Switch SNs to be included in the SWIM Upgrade Group
+nd_swim_upgrade_group_switches:
+  - "9LBMY70F9G0" # N9K-C9300v
