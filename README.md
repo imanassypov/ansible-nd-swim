@@ -1,6 +1,11 @@
 <!-- markdownlint-configure-file {"MD003": {"style": "atx"}} -->
 # Ansible Nexus Dashboard Software Image Management
 
+![Status: Proof of Concept](https://img.shields.io/badge/status-proof--of--concept-orange)
+![License](https://img.shields.io/badge/license-Cisco%20Sample%20Code-blue)
+![Ansible Core](https://img.shields.io/badge/ansible--core-%3E%3D2.15-red)
+![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)
+
 This project automates fabric switch upgrades in Nexus Dashboard (ND) using the unified REST API introduced in ND 4.1. It orchestrates the full SWIM (Software Image Management) lifecycle: configuring remote storage, uploading NOS images, creating upgrade groups, staging, executing, and post-upgrade reporting.
 
 ## 🚀 Quick Start
