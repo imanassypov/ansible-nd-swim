@@ -79,7 +79,8 @@ nd_remote_storage_password: "{{ vault_scp_password }}"  # Store in Ansible Vault
 nd_remote_storage_type: "scp"
 
 nd_swim_image_name: "nxos64-cs.10.6.2.F.bin"
-nd_swim_image_path: "nxos64-cs.10.6.2.F.bin"
+# nd_swim_upgrade_image_path defaults to nd_swim_image_name; override only if the remote path differs
+# nd_swim_upgrade_image_path: "subdir/nxos64-cs.10.6.2.F.bin"
 
 nd_swim_upgrade_group_name: "ansible_upgrade_group"
 nd_swim_upgrade_group_switches:

@@ -45,8 +45,7 @@ These variables have no defaults and must be supplied by the caller.
 | `nd_remote_storage_password` | Password for remote storage authentication — **store in Ansible Vault** |
 | `nd_remote_storage_path` | Base path on the remote storage server |
 | `nd_remote_storage_type` | Remote storage protocol type (e.g., `SCP`) |
-| `nd_swim_image_name` | Filename of the NOS image (used for existence check) |
-| `nd_swim_image_path` | Full path to the NOS image on the remote storage server |
+| `nd_swim_image_name` | Filename of the NOS image (used for existence check and as default image path) |
 | `nd_swim_upgrade_group_name` | Name of the upgrade group to create or update |
 | `nd_swim_upgrade_group_switches` | List of switch serial numbers or identifiers to include in the upgrade group |
 
@@ -68,6 +67,7 @@ These variables have sensible defaults and can be overridden.
 | `nd_swim_upgrade_group_disruptive` | `true` | Allow disruptive upgrade |
 | `nd_swim_upgrade_group_maintenance` | `false` | Place switches in maintenance mode during upgrade |
 | `nd_swim_upgrade_group_report_selection` | `noReport` | Report type: `noReport`, `basic`, `advanced`. Setting to anything other than `noReport` enables pre/post upgrade reports |
+| `nd_swim_upgrade_image_path` | `{{ nd_swim_image_name }}` | Path to the NOS image on the remote storage server. Defaults to `nd_swim_image_name`; override when the image resides in a subdirectory |
 
 ### Optional Variables (no defaults)
 
@@ -137,7 +137,8 @@ Example Playbook
     nd_remote_storage_type: "SCP"
 
     nd_swim_image_name: "nxos.10.4.2.F.bin"
-    nd_swim_image_path: "/images/nxos.10.4.2.F.bin"
+    # nd_swim_upgrade_image_path defaults to nd_swim_image_name; override when image is in a subdirectory
+    # nd_swim_upgrade_image_path: "subdir/nxos.10.4.2.F.bin"
 
     nd_swim_upgrade_group_name: "upgrade-group-01"
     nd_swim_upgrade_group_switches:
