@@ -39,6 +39,12 @@ config:
   MD029:
     style: ordered
 
+  # MD003/heading-style: setext_with_atx — enforces setext (=== / ---) for h1/h2
+  # (Ansible Galaxy convention) while allowing ATX (###) for h3+.
+  # Files that use ATX throughout (root README, docs) override this inline.
+  MD003:
+    style: setext_with_atx
+
   # MD041/first-line-heading: Ensure the file starts with an H1 title
   MD041: true
 

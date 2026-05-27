@@ -38,7 +38,7 @@
           accept: application/json
         body_format: json
         body:
-          filePath: "{{ nd_swim_image_path }}"
+          filePath: "{{ nd_swim_upgrade_image_path }}"
           remoteServerName: "{{ nd_remote_storage_name }}"
         validate_certs: "{{ nd_swim_upgrade_nd_validate_certs }}"
         status_code: [200]

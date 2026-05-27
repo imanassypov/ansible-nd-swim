@@ -20,3 +20,7 @@ nd_swim_upgrade_group_uninstall_package: true
 nd_swim_upgrade_group_disruptive: true
 nd_swim_upgrade_group_maintenance: false
 nd_swim_upgrade_group_report_selection: noReport # noReport, basic, advanced
+
+# Image Upload Defaults
+# Default assumes Image name == the file name at the root of the remote storage path defined.
+nd_swim_upgrade_image_path: "{{ nd_swim_image_name }}"

@@ -4,7 +4,7 @@
 
 - name: Check if Upgrade Group is staged and ready for install
   ansible.builtin.uri:
-    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+    url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?updateGroupName={{ nd_swim_upgrade_group_name }}"
     method: GET
     headers:
       X-Nd-Username: "{{ nd_username }}"
@@ -45,7 +45,7 @@
 
     - name: Poll Staging Progress
       ansible.builtin.uri:
-        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?updateGroupName={{ nd_swim_upgrade_group_name }}"
         method: GET
         headers:
           X-Nd-Username: "{{ nd_username }}"
@@ -57,8 +57,7 @@
       register: nd_swim_upgrade_staging_progress_response
       until: >
         nd_swim_upgrade_staging_progress_response.json.softwareUpdateSummary.updatePlanStatus == "Ready To Install" and
-        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].updateGroupStatus in ["stageSuccess", "stageFailed", "validateSuccess", "validateFailed"] and
-        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId != "null"
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].updateGroupStatus in ["stageSuccess", "stageFailed", "validateSuccess", "validateFailed"]
       retries: 60
       delay: 60
       changed_when: false
@@ -73,7 +72,7 @@
   block:
     - name: Poll for Pre-Upgrade Report Generation
       ansible.builtin.uri:
-        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?upgradeGroupName={{ nd_swim_upgrade_group_name }}"
+        url: "{{ nd_swim_upgrade_manage_base_url }}/fabrics/{{ nd_fabric_name }}/softwareUpdatePlan/summary?updateGroupName={{ nd_swim_upgrade_group_name }}"
         method: GET
         headers:
           X-Nd-Username: "{{ nd_username }}"
@@ -84,12 +83,12 @@
         timeout: "{{ nd_swim_upgrade_nd_api_timeout }}"
       register: nd_swim_upgrade_staging_progress_response
       until: >
-        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId != "null"
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId is not none and
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preReportInstanceId | string | length > 0 and
+        nd_swim_upgrade_staging_progress_response.json.updateGroups[0].preUpdateReport == "success"
       retries: "{{ nd_swim_upgrade_polling_max_attempts }}"
       delay: "{{ nd_swim_upgrade_polling_delay }}"
       changed_when: false
-      vars:
-        _: "{{ lookup('template', 'ensure_valid_token.yml') }}"
 
     - name: Set Update Plan Summary Fact
       ansible.builtin.set_fact:

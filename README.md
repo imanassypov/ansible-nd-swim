@@ -1,4 +1,10 @@
+<!-- markdownlint-configure-file {"MD003": {"style": "atx"}} -->
 # Ansible Nexus Dashboard Software Image Management
+
+![Status: Proof of Concept](https://img.shields.io/badge/status-proof--of--concept-orange)
+![License](https://img.shields.io/badge/license-Cisco%20Sample%20Code-blue)
+![Ansible Core](https://img.shields.io/badge/ansible--core-%3E%3D2.15-red)
+![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue)
 
 This project automates fabric switch upgrades in Nexus Dashboard (ND) using the unified REST API introduced in ND 4.1. It orchestrates the full SWIM (Software Image Management) lifecycle: configuring remote storage, uploading NOS images, creating upgrade groups, staging, executing, and post-upgrade reporting.
 
@@ -79,7 +85,8 @@ nd_remote_storage_password: "{{ vault_scp_password }}"  # Store in Ansible Vault
 nd_remote_storage_type: "scp"
 
 nd_swim_image_name: "nxos64-cs.10.6.2.F.bin"
-nd_swim_image_path: "nxos64-cs.10.6.2.F.bin"
+# nd_swim_upgrade_image_path defaults to nd_swim_image_name; override only if the remote path differs
+# nd_swim_upgrade_image_path: "subdir/nxos64-cs.10.6.2.F.bin"
 
 nd_swim_upgrade_group_name: "ansible_upgrade_group"
 nd_swim_upgrade_group_switches:
@@ -117,7 +124,7 @@ uv run ansible-playbook -i inventories/production pb_nd_fabric_upgrade.yml --tag
 ```
 
 | Tag | Tasks Executed |
-|---|---|
+| --- | --- |
 | `setup` | Remote storage + image upload + upgrade group + staging |
 | `remote_storage` | Configure remote storage only |
 | `image_upload` | Upload NOS image only |
@@ -149,7 +156,7 @@ uv run ansible-vault encrypt host_vars/nd-data/connection.yml
 | Dependency | Version |
 | :--- | :--- |
 | Python | `>=3.12,<3.14` |
-| ansible-core | `>=2.15.0` |
+| `ansible-core` | `>=2.15.0` |
 | uv | Latest |
 
 ---
