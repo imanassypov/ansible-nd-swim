@@ -1,3 +1,4 @@
+<!-- markdownlint-configure-file {"MD003": {"style": "atx"}} -->
 # Setting Up Pre-Commit Hooks
 
 To maintain high code quality and prevent common Ansible/Python errors from being committed, this project uses `pre-commit`.

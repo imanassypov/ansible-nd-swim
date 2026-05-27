@@ -34,7 +34,7 @@ Role Variables
 These variables have no defaults and must be supplied by the caller.
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `nd_host` | Hostname or IP address of the Nexus Dashboard instance |
 | `nd_username` | ND username used for API authentication |
 | `nd_api_key` | ND API key for authentication — **store in Ansible Vault** |
@@ -54,7 +54,7 @@ These variables have no defaults and must be supplied by the caller.
 These variables have sensible defaults and can be overridden.
 
 | Variable | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `nd_swim_upgrade_debug` | `false` | Enable verbose debug output (individual test result loops) |
 | `nd_swim_upgrade_nd_validate_certs` | `{{ nd_validate_certs \| default(false) }}` | Validate TLS certificates when calling the ND API |
 | `nd_swim_upgrade_nd_api_timeout` | `{{ nd_api_timeout \| default(60) }}` | HTTP request timeout (seconds) for API calls |
@@ -74,7 +74,7 @@ These variables have sensible defaults and can be overridden.
 These variables are consumed with Ansible's `default()` filter and are only required in specific scenarios.
 
 | Variable | Description |
-|---|---|
+| --- | --- |
 | `nd_remote_storage_description` | Human-readable description for the remote storage entry (default: `Ansible Configured Remote Storage`) |
 | `nd_remote_storage_ignore_host_key_validation` | Skip SSH host key validation for the remote storage server (default: `false`) |
 | `nd_swim_upgrade_group_nos_image_name` | Override the NOS image name used by the upgrade group (falls back to `nd_swim_image_name`) |
@@ -89,7 +89,7 @@ These variables are consumed with Ansible's `default()` filter and are only requ
 These are computed from `nd_host` and should not be overridden.
 
 | Variable | Value | Description |
-|---|---|---|
+| --- | --- | --- |
 | `nd_swim_upgrade_infra_base_url` | `https://{{ nd_host }}/api/v1/infra` | Base URL for ND infrastructure API endpoints |
 | `nd_swim_upgrade_manage_base_url` | `https://{{ nd_host }}/api/v1/manage` | Base URL for ND management API endpoints |
 | `nd_swim_upgrade_polling_max_attempts` | `60` | Maximum polling attempts for long-running operations |
@@ -101,7 +101,7 @@ Tags
 Tasks are tagged to allow selective execution.
 
 | Tag | Tasks |
-|---|---|
+| --- | --- |
 | `setup` | All setup tasks (remote storage, image upload, upgrade group creation, staging) |
 | `remote_storage` | Configure remote storage |
 | `image_upload` | Upload NOS image |
@@ -180,4 +180,4 @@ Cisco Sample Code License, Version 1.1
 Author Information
 ------------------
 
-Russell Johnston — rujohns2@cisco.com
+Russell Johnston — <rujohns2@cisco.com>
